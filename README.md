@@ -28,5 +28,5 @@ Machine learning project scaffold for training and evaluating lap time predictio
 
 ```bash
 conda env create -f environment.yml
-conda activate f1-laptime-ml
+conda activate f1-laptime-forecasting
 ```

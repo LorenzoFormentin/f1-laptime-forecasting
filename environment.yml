@@ -1,0 +1,23 @@
+name: f1-laptime-forecasting
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - pip
+
+  # Core DS stack
+  - numpy
+  - pandas
+  - pyarrow
+  - scikit-learn
+  - matplotlib
+
+  # Notebooks
+  - jupyterlab
+
+  # Install FastF1 + PyTorch via pip to get the macOS wheels with MPS support
+  - pip:
+      - fastf1
+      - torch
+      - torchvision
+      - torchaudio
