@@ -24,9 +24,16 @@ Machine learning project scaffold for training and evaluating lap time predictio
 
 ## Setup
 
-### 1) Create the conda environment
+### Create the conda environment
 
 ```bash
 conda env create -f environment.yml
 conda activate f1-laptime-forecasting
+```
+
+### initialize project and test
+
+```bash
+pip install -e .
+pytest
 ```

@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 .env
 
+# Packaging / build metadata
+*.egg-info/
+
 # Jupyter
 .ipynb_checkpoints/
 
