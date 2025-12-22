@@ -33,6 +33,40 @@ def _print_df_info(df: pd.DataFrame, name: str, max_cols: int = 40) -> None:
     if "LapTime_next_s" in df.columns:
         print("\nLapTime_next_s summary:")
         print(df["LapTime_next_s"].describe())
+        
+    # ---- QA / sanity checks (best-effort, no hard assumptions) ----
+    key_cols = [c for c in ["Year", "EventName", "Session", "Driver", "LapNumber"] if c in df.columns]
+    if key_cols:
+        dup_keys = int(df.duplicated(subset=key_cols).sum())
+        print(f"\nDuplicate keys on {key_cols}: {dup_keys}")
+
+    dup_rows = int(df.duplicated().sum())
+    print(f"Duplicate full rows: {dup_rows}")
+
+    nulls = df.isna().sum().sort_values(ascending=False)
+    top_nulls = nulls[nulls > 0].head(15)
+    if len(top_nulls) > 0:
+        print("\nTop missing columns:")
+        print(top_nulls.to_string())
+    else:
+        print("\nNo missing values detected.")
+
+    if "LapTime_s" in df.columns and pd.api.types.is_numeric_dtype(df["LapTime_s"]):
+        bad = int((df["LapTime_s"] <= 0).sum())
+        if bad:
+            print(f"\nWARNING: LapTime_s has {bad} non-positive values")
+
+    if (
+        "LapTime_s" in df.columns
+        and "LapTime_next_s" in df.columns
+        and pd.api.types.is_numeric_dtype(df["LapTime_s"])
+        and pd.api.types.is_numeric_dtype(df["LapTime_next_s"])
+    ):
+        delta = (df["LapTime_next_s"] - df["LapTime_s"]).abs()
+        extreme = int((delta > 30).sum())
+        if extreme:
+            print(f"WARNING: {extreme} rows have |next-current| > 30s (check pit/flags policy)")
+
 
 
 def main() -> None:
