@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Sequence
+
 import pandas as pd
 
 import fastf1
@@ -11,6 +13,7 @@ def extract_laps_table(
     year: int,
     event_name: str,
     session_name: str,
+    extra_cols: Sequence[str] = (),
 ) -> pd.DataFrame:
     """
     Extract a tabular laps table from a FastF1 Session.
@@ -38,6 +41,9 @@ def extract_laps_table(
         "PitInTime",
         "PitOutTime",
     ]
+    if extra_cols:
+        keep_cols.extend(extra_cols)
+    keep_cols = list(dict.fromkeys(keep_cols))
 
     # Some columns might be missing for certain sessions/years.
     # We'll keep only those that exist, but the contract will enforce essentials.

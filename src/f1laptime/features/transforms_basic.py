@@ -7,6 +7,19 @@ import pandas as pd
 
 
 @dataclass(frozen=True)
+class LapCleanSpec:
+    """
+    Configurable but lightweight cleaning rules for laps tables.
+    """
+    drop_pit_laps: bool = True
+    drop_missing_driver: bool = True
+    drop_missing_lap_number: bool = True
+    drop_missing_lap_time: bool = True
+    min_lap_time_s: float | None = None
+    max_lap_time_s: float | None = None
+
+
+@dataclass(frozen=True)
 class BasicExampleSpec:
     """
     Minimal spec for turning laps into supervised examples.
@@ -31,6 +44,43 @@ def _lap_time_to_seconds(series: pd.Series) -> pd.Series:
     return converted.dt.total_seconds()
 
 
+def clean_laps(
+    laps: pd.DataFrame,
+    *,
+    spec: LapCleanSpec = LapCleanSpec(),
+) -> pd.DataFrame:
+    """
+    Clean laps with a configurable but task-agnostic policy.
+    """
+    df = laps.copy()
+
+    if spec.drop_pit_laps:
+        for col in ["PitInTime", "PitOutTime"]:
+            if col in df.columns:
+                df = df[df[col].isna()]
+
+    drop_cols: list[str] = []
+    if spec.drop_missing_driver and "Driver" in df.columns:
+        drop_cols.append("Driver")
+    if spec.drop_missing_lap_number and "LapNumber" in df.columns:
+        drop_cols.append("LapNumber")
+    if spec.drop_missing_lap_time and "LapTime" in df.columns:
+        drop_cols.append("LapTime")
+    if drop_cols:
+        df = df.dropna(subset=drop_cols)
+
+    if spec.min_lap_time_s is not None or spec.max_lap_time_s is not None:
+        lap_time_s = _lap_time_to_seconds(df["LapTime"])
+        mask = lap_time_s.notna()
+        if spec.min_lap_time_s is not None:
+            mask &= lap_time_s >= spec.min_lap_time_s
+        if spec.max_lap_time_s is not None:
+            mask &= lap_time_s <= spec.max_lap_time_s
+        df = df[mask].copy()
+
+    return df
+
+
 def clean_laps_minimal(laps: pd.DataFrame) -> pd.DataFrame:
     """
     Minimal cleaning that is safe and task-agnostic.
@@ -40,21 +90,14 @@ def clean_laps_minimal(laps: pd.DataFrame) -> pd.DataFrame:
     - drop missing LapTime
     - drop missing Driver / LapNumber
     """
-    df = laps.copy()
-
-    # Ensure required columns exist before using them
-    for col in ["PitInTime", "PitOutTime"]:
-        if col in df.columns:
-            df = df[df[col].isna()]
-
-    df = df.dropna(subset=["Driver", "LapNumber", "LapTime"])
-    return df
+    return clean_laps(laps)
 
 
 def build_next_lap_examples(
     laps: pd.DataFrame,
     *,
     spec: BasicExampleSpec = BasicExampleSpec(),
+    clean_spec: LapCleanSpec | None = LapCleanSpec(),
 ) -> pd.DataFrame:
     """
     Produce a supervised ML table where each row predicts next lap time.
@@ -64,7 +107,15 @@ def build_next_lap_examples(
     - LapTime_next_s (target)
     - Lag features: LapTime_lag_{k}_s
     """
-    df = clean_laps_minimal(laps)
+    if len(set(spec.lags)) != len(spec.lags):
+        raise ValueError("BasicExampleSpec.lags must be unique")
+    if any(k <= 0 for k in spec.lags):
+        raise ValueError("BasicExampleSpec.lags must be positive integers")
+
+    if clean_spec is None:
+        df = laps.copy()
+    else:
+        df = clean_laps(laps, spec=clean_spec)
 
     # Sort by driver and lap number for temporal consistency
     df = df.sort_values(["Year", "EventName", "Session", "Driver", "LapNumber"]).copy()
